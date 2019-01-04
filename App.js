@@ -30,6 +30,7 @@ export default class App extends Component {
     this.state = {
       scanning:false,
       peripherals: new Map(),
+      text:'',
       appState: ''
     }
   }
@@ -103,7 +104,7 @@ export default class App extends Component {
       this.setState({peripherals: new Map()});
       BleManager.scan([], 10, true).then((results) => {
         console.log('Scanning...');
-        this.setState({scanning:true});
+        this.setState({scanning:true, peripheralInfo: false});
       });
     }
   }
@@ -131,7 +132,6 @@ export default class App extends Component {
       peripherals.set(peripheral.id, peripheral);
       this.setState({ peripherals })
     }
-    
   }
 
   test(peripheral) {
@@ -147,56 +147,27 @@ export default class App extends Component {
             peripherals.set(peripheral.id, p);
             this.setState({peripherals});
           }
-          console.log('Connected to ' + peripheral.id);
-            /* Test read current RSSI value*/
-            BleManager.retrieveServices(peripheral.id).then((peripheralData) => {
-              console.log('Retrieved peripheral services', peripheralData);
-
-              BleManager.readRSSI(peripheral.id).then((rssi) => {
-                console.log('Retrieved actual RSSI value', rssi);
-              });
-            });
-
-            BleManager.retrieveServices(peripheral.id).then((peripheralInfo) => {
-              console.log('peripheralInfo: ', peripheralInfo);
-              let service = '1test';
-              let bakeCharacteristic = '2test';
-
-                if(peripheralInfo.characteristics)
-                  for(let i=0;i<peripheralInfo.characteristics.length;i=i+1){
-                    let char = peripheralInfo.characteristics[i]
-                    let prop = char.properties
-                    if(prop.Notify && prop.Read){
-                    bakeCharacteristic = char.characteristic
-                    service = char.service
-                  }
-                  if(prop.Read){
-                    bakeCharacteristic = char.characteristic
-                    service = char.service
-                  }
+          BleManager.retrieveServices(peripheral.id).then((peripheralInfo) => {
+            console.log('peripheralInfo: ', peripheralInfo);
+            let service = false
+            let bakeCharacteristic = '2test';
+            if(peripheralInfo.characteristics)
+              for(let i=0;i<peripheralInfo.characteristics.length;i=i+1){
+                let char = peripheralInfo.characteristics[i]
+                let prop = char.properties
+                if(prop.Notify){
+                  bakeCharacteristic = char.characteristic
+                  service = char.service
                 }
-                // BleManager.read(peripheralInfo.id, service , bakeCharacteristic )
-                // .then((readData) => {
-                //   // Success code
-                //   console.log('Read: ' + readData);
-                // })
-                // .catch((error) => {
-                //   console.log('read error: ', error);
-                //   // Failure code
-                // })
-
-                BleManager.startNotification(peripheralInfo.id, service, bakeCharacteristic).then(() => {
-                  console.log('Started notification on ' + peripheral.id);
-                    BleManager.write(peripheral.id, service, bakeCharacteristic, [13]).then(() => {
-                      console.log('Writed NORMAL crust');
-                      BleManager.write(peripheral.id, service, bakeCharacteristic, [1,4,80,34,24,19]).then(() => {
-                        console.log('Writed 351 temperature, the pizza should be BAKED');
-                      });
-                    });
-                }).catch((error) => {
-                  console.log('Notification error', error);
-                });
+            }
+            if(!service) return alert('no notify access')
+            this.setState({peripheralInfo})
+            BleManager.startNotification(peripheralInfo.id, service, bakeCharacteristic).then(() => {
+              console.log('Started notification on ' + peripheralInfo.id);
+            }).catch((error) => {
+              console.log('Notification error', error);
             });
+          });
         }).catch((error) => {
           console.log('Connection error', error);
         });
@@ -204,17 +175,53 @@ export default class App extends Component {
     }
   }
 
+  sendMessage(){
+    const {peripheralInfo, text} = this.state
+    const self = this
+    if(!text || !peripheralInfo) return false
+    let service = '1';
+    let writeChar = '2';
+    if(peripheralInfo.characteristics)
+    for(let i=0;i<peripheralInfo.characteristics.length;i=i+1){
+      let char = peripheralInfo.characteristics[i]
+      let prop = char.properties
+      if(prop.Write){
+        writeChar = char.characteristic
+        service = char.service
+      }
+    }
+    if(!service) return alert('No Write Access')
+    BleManager.write(peripheralInfo.id, service, writeChar, [parseInt(text)]).then(() => {
+      alert('Successfully sent Message : '+text)
+      self.setState({text:''})
+    }).catch((error) => {
+      console.log('Write error', error);
+    })
+  }
+
   render() {
     const list = Array.from(this.state.peripherals.values());
     const dataSource = ds.cloneWithRows(list);
-
+    const { peripheralInfo, text} = this.state
 
     return (
       <View style={styles.container}>
         <TouchableHighlight style={{marginTop: 40,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.startScan() }>
           <Text>Scan Bluetooth ({this.state.scanning ? 'on' : 'off'})</Text>
         </TouchableHighlight>
-        <ScrollView style={styles.scroll}>
+        { peripheralInfo && <View>
+          <Text style={{textAlign: 'center'}}>Connected Device : {peripheralInfo.name}</Text>
+          <TextInput
+            style={{height: 40,margin: 20}}
+            placeholder="Enter Message"
+            value = {text}
+            onChangeText={(text) => this.setState({text})}
+          />
+          <TouchableHighlight style={{marginTop: 0,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.sendMessage() }>
+            <Text>Send Message</Text>
+          </TouchableHighlight>
+        </View>}
+        {!peripheralInfo && <ScrollView style={styles.scroll}>
           {(list.length == 0) &&
             <View style={{flex:1, margin: 20}}>
               <Text style={{textAlign: 'center'}}>No peripherals</Text>
@@ -225,6 +232,7 @@ export default class App extends Component {
             dataSource={dataSource}
             renderRow={(item) => {
               const color = item.connected ? 'green' : '#fff';
+              if(!item.name) return false
               return (
                 <TouchableHighlight onPress={() => this.test(item) }>
                   <View style={[styles.row, {backgroundColor: color}]}>
@@ -235,7 +243,7 @@ export default class App extends Component {
               );
             }}
           />
-        </ScrollView>
+        </ScrollView>}
       </View>
     );
   }
