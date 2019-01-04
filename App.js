@@ -14,6 +14,7 @@ import {
   ScrollView,
   AppState,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import BleManager from 'react-native-ble-manager';
 
@@ -24,28 +25,22 @@ const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
 
 export default class App extends Component {
-  constructor(){
-    super()
-
+  constructor(props){
+    super(props)
     this.state = {
       scanning:false,
       peripherals: new Map(),
       appState: ''
     }
-
   }
 
   componentDidMount() {
     AppState.addEventListener('change', this.handleAppStateChange);
-
-    BleManager.start({showAlert: false, forceLegacy: true});
-
+    BleManager.start({showAlert: false});
     this.handlerDiscover = bleManagerEmitter.addListener('BleManagerDiscoverPeripheral', this.handleDiscoverPeripheral );
     this.handlerStop = bleManagerEmitter.addListener('BleManagerStopScan', this.handleStopScan );
     this.handlerDisconnect = bleManagerEmitter.addListener('BleManagerDisconnectPeripheral', this.handleDisconnectedPeripheral );
     this.handlerUpdate = bleManagerEmitter.addListener('BleManagerDidUpdateValueForCharacteristic', this.handleUpdateValueForCharacteristic );
-
-
 
     if (Platform.OS === 'android' && Platform.Version >= 23) {
         PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION).then((result) => {
@@ -62,7 +57,6 @@ export default class App extends Component {
             }
       });
     }
-
   }
 
   handleAppStateChange = (nextAppState) => {
@@ -107,7 +101,7 @@ export default class App extends Component {
   startScan() {
     if (!this.state.scanning) {
       this.setState({peripherals: new Map()});
-      BleManager.scan([], 600, true, { scanMode: 2, matchMode: 1, numberOfMatches: 3}).then((results) => {
+      BleManager.scan([], 10, true).then((results) => {
         console.log('Scanning...');
         this.setState({scanning:true});
       });
@@ -120,9 +114,9 @@ export default class App extends Component {
         console.log('No connected peripherals')
       }
       console.log(results);
-      var peripherals = this.state.peripherals;
-      for (var i = 0; i < results.length; i++) {
-        var peripheral = results[i];
+      let peripherals = this.state.peripherals;
+      for (let i = 0; i < results.length; i++) {
+        let peripheral = results[i];
         peripheral.connected = true;
         peripherals.set(peripheral.id, peripheral);
         this.setState({ peripherals });
@@ -131,7 +125,7 @@ export default class App extends Component {
   }
 
   handleDiscoverPeripheral = (peripheral) => {
-    var peripherals = this.state.peripherals;
+    let peripherals = this.state.peripherals;
     if (!peripherals.has(peripheral.id)){
       if(peripheral.name)console.log('Got ble peripheral', peripheral);
       peripherals.set(peripheral.id, peripheral);
@@ -143,7 +137,6 @@ export default class App extends Component {
   test(peripheral) {
     if (peripheral){
       if (peripheral.connected){
-        console.log('peripheral.connected');
         BleManager.disconnect(peripheral.id);
       }else{
         BleManager.connect(peripheral.id).then(() => {
@@ -155,15 +148,6 @@ export default class App extends Component {
             this.setState({peripherals});
           }
           console.log('Connected to ' + peripheral.id);
-
-
-          var bakeCharacteristic = '13333333-3333-3333-3333-333333330003';
-          var crustCharacteristic = '13333333-3333-3333-3333-333333330001';
-
-
-
-          // setTimeout(() => {
-
             /* Test read current RSSI value*/
             BleManager.retrieveServices(peripheral.id).then((peripheralData) => {
               console.log('Retrieved peripheral services', peripheralData);
@@ -173,79 +157,46 @@ export default class App extends Component {
               });
             });
 
-            // Test using bleno's pizza example
-            // https://github.com/sandeepmistry/bleno/tree/master/examples/pizza
             BleManager.retrieveServices(peripheral.id).then((peripheralInfo) => {
-
-
-
-
               console.log('peripheralInfo: ', peripheralInfo);
-              var service = '13333333-3333-3333-3333-333333333337';
-              var bakeCharacteristic = '13333333-3333-3333-3333-333333330003';
-              var crustCharacteristic = '13333333-3333-3333-3333-333333330001';
+              let service = '1test';
+              let bakeCharacteristic = '2test';
 
-              // setTimeout(() => {
                 if(peripheralInfo.characteristics)
-                  for(var i=0;i<peripheralInfo.characteristics.length;i=i+1){
+                  for(let i=0;i<peripheralInfo.characteristics.length;i=i+1){
                     let char = peripheralInfo.characteristics[i]
                     let prop = char.properties
-                    if( prop.Notify){
+                    if(prop.Notify && prop.Read){
+                    bakeCharacteristic = char.characteristic
+                    service = char.service
+                  }
+                  if(prop.Read){
                     bakeCharacteristic = char.characteristic
                     service = char.service
                   }
                 }
+                // BleManager.read(peripheralInfo.id, service , bakeCharacteristic )
+                // .then((readData) => {
+                //   // Success code
+                //   console.log('Read: ' + readData);
+                // })
+                // .catch((error) => {
+                //   console.log('read error: ', error);
+                //   // Failure code
+                // })
 
-
-
-                // if(peripheralInfo.characteristics && peripheralInfo.characteristics[4]){
-                  
-                //   bakeCharacteristic = peripheralInfo.characteristics[4].characteristic
-                //   service = peripheralInfo.characteristics[4].service
-                // }
-                console.log('1bakeCharacteristic: ', bakeCharacteristic);
-                
-
-
-                BleManager.read(peripheral.id, service , bakeCharacteristic )
-                .then((readData) => {
-                  // Success code
-                  console.log('Read: ' + readData);
-               
-                  // const buffer = Buffer.Buffer.from(readData);    //https://github.com/feross/buffer#convert-arraybuffer-to-buffer
-                  // const sensorData = buffer.readUInt8(1, true);
-                })
-                .catch((error) => {
-                  console.log('read error: ', error);
-                  // Failure code
-                })
-
-                BleManager.startNotification(peripheral.id, service, bakeCharacteristic).then(() => {
+                BleManager.startNotification(peripheralInfo.id, service, bakeCharacteristic).then(() => {
                   console.log('Started notification on ' + peripheral.id);
-                  // setTimeout(() => {
-                    BleManager.write(peripheral.id, service, crustCharacteristic, [0]).then(() => {
+                    BleManager.write(peripheral.id, service, bakeCharacteristic, [13]).then(() => {
                       console.log('Writed NORMAL crust');
-                      BleManager.write(peripheral.id, service, bakeCharacteristic, [1,95]).then(() => {
+                      BleManager.write(peripheral.id, service, bakeCharacteristic, [1,4,80,34,24,19]).then(() => {
                         console.log('Writed 351 temperature, the pizza should be BAKED');
-                        /*
-                        var PizzaBakeResult = {
-                          HALF_BAKED: 0,
-                          BAKED:      1,
-                          CRISPY:     2,
-                          BURNT:      3,
-                          ON_FIRE:    4
-                        };*/
                       });
                     });
-
-                  // }, 1);
                 }).catch((error) => {
-                  // console.log('Notification error', error);
+                  console.log('Notification error', error);
                 });
-              // }, 1);
             });
-
-          // }, 1);
         }).catch((error) => {
           console.log('Connection error', error);
         });
@@ -262,9 +213,6 @@ export default class App extends Component {
       <View style={styles.container}>
         <TouchableHighlight style={{marginTop: 40,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.startScan() }>
           <Text>Scan Bluetooth ({this.state.scanning ? 'on' : 'off'})</Text>
-        </TouchableHighlight>
-        <TouchableHighlight style={{marginTop: 0,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.retrieveConnected() }>
-          <Text>Retrieve connected peripherals</Text>
         </TouchableHighlight>
         <ScrollView style={styles.scroll}>
           {(list.length == 0) &&
