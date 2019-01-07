@@ -25,6 +25,10 @@ const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
 
+import {
+  Button,
+} from './styles'
+
 export default class App extends Component {
   constructor(props){
     super(props)
@@ -100,7 +104,7 @@ export default class App extends Component {
     this.setState({ scanning: false });
   }
 
-  startScan() {
+  startScan = () => {
     if (!this.state.scanning) {
       this.setState({peripherals: new Map()});
       BleManager.scan([], 10, true).then((results) => {
@@ -208,9 +212,9 @@ export default class App extends Component {
 
     return (
       <View style={styles.container}>
-        <TouchableOpacity style={{marginTop: 40,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.startScan() } >
+        <Button onPress={this.startScan} >
           <Text>Scan Bluetooth ({this.state.scanning ? 'on' : 'off'})</Text>
-        </TouchableOpacity>
+        </Button>
         { peripheralInfo && <View>
           <Text style={{textAlign: 'center'}}>Connected Device : {peripheralInfo.name}</Text>
           <TextInput
@@ -219,9 +223,9 @@ export default class App extends Component {
             value = {text}
             onChangeText={(text) => this.setState({text})}
           />
-          <TouchableOpacity style={{marginTop: 0,margin: 20, padding:20, backgroundColor:'#ccc'}} onPressIn={()=>this.sendMessage(this.state.text)} onPressOut={()=>this.sendMessage(3)}>
+          <Button onPressIn={()=>this.sendMessage(this.state.text)} onPressOut={()=>this.sendMessage(3)}>
             <Text>Send Message</Text>
-          </TouchableOpacity>
+          </Button>
         </View>}
         {!peripheralInfo && <ScrollView  style={styles.scroll}>
           {(list.length == 0) &&
@@ -236,12 +240,12 @@ export default class App extends Component {
               const color = item.connected ? 'green' : '#fff';
               if(!item.name) return false
               return (
-                <TouchableOpacity onPress={() => this.test(item) }>
-                  <View style={[styles.row, {backgroundColor: color}]}>
+                <Button onPress={() => this.test(item) }>
+                  <View >
                     <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 10}}>{item.name}</Text>
                     <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 10}}>{item.id +'  '+ item.rssi}</Text>
                   </View>
-                </TouchableOpacity>
+                </Button>
               );
             }}
           />
