@@ -15,6 +15,7 @@ import {
   AppState,
   Dimensions,
   TextInput,
+  TouchableOpacity
 } from 'react-native';
 import BleManager from 'react-native-ble-manager';
 
@@ -175,10 +176,10 @@ export default class App extends Component {
     }
   }
 
-  sendMessage(){
+  sendMessage = (param) => {
     const {peripheralInfo, text} = this.state
     const self = this
-    if(!text || !peripheralInfo) return false
+    if(!peripheralInfo) return false
     let service = '1';
     let writeChar = '2';
     if(peripheralInfo.characteristics)
@@ -191,8 +192,9 @@ export default class App extends Component {
       }
     }
     if(!service) return alert('No Write Access')
-    BleManager.write(peripheralInfo.id, service, writeChar, [parseInt(text)]).then(() => {
-      alert('Successfully sent Message : '+text)
+    BleManager.write(peripheralInfo.id, service, writeChar, [parseInt(param)]).then(() => {
+      console.log('param: ', param);
+      alert('Successfully sent Message : '+param)
       self.setState({text:''})
     }).catch((error) => {
       console.log('Write error', error);
@@ -206,9 +208,9 @@ export default class App extends Component {
 
     return (
       <View style={styles.container}>
-        <TouchableHighlight style={{marginTop: 40,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.startScan() }>
+        <TouchableOpacity style={{marginTop: 40,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.startScan() } >
           <Text>Scan Bluetooth ({this.state.scanning ? 'on' : 'off'})</Text>
-        </TouchableHighlight>
+        </TouchableOpacity>
         { peripheralInfo && <View>
           <Text style={{textAlign: 'center'}}>Connected Device : {peripheralInfo.name}</Text>
           <TextInput
@@ -217,11 +219,11 @@ export default class App extends Component {
             value = {text}
             onChangeText={(text) => this.setState({text})}
           />
-          <TouchableHighlight style={{marginTop: 0,margin: 20, padding:20, backgroundColor:'#ccc'}} onPress={() => this.sendMessage() }>
+          <TouchableOpacity style={{marginTop: 0,margin: 20, padding:20, backgroundColor:'#ccc'}} onPressIn={()=>this.sendMessage(this.state.text)} onPressOut={()=>this.sendMessage(3)}>
             <Text>Send Message</Text>
-          </TouchableHighlight>
+          </TouchableOpacity>
         </View>}
-        {!peripheralInfo && <ScrollView style={styles.scroll}>
+        {!peripheralInfo && <ScrollView  style={styles.scroll}>
           {(list.length == 0) &&
             <View style={{flex:1, margin: 20}}>
               <Text style={{textAlign: 'center'}}>No peripherals</Text>
@@ -234,12 +236,12 @@ export default class App extends Component {
               const color = item.connected ? 'green' : '#fff';
               if(!item.name) return false
               return (
-                <TouchableHighlight onPress={() => this.test(item) }>
+                <TouchableOpacity onPress={() => this.test(item) }>
                   <View style={[styles.row, {backgroundColor: color}]}>
                     <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 10}}>{item.name}</Text>
                     <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 10}}>{item.id +'  '+ item.rssi}</Text>
                   </View>
-                </TouchableHighlight>
+                </TouchableOpacity>
               );
             }}
           />
