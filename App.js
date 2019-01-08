@@ -24,12 +24,16 @@ const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
+import { withAuthenticator } from 'aws-amplify-react-native'
+import { Auth } from 'aws-amplify'
+import awsconfig from './aws-exports';
+Auth.configure(awsconfig);
 
 import {
   Button,
 } from './styles'
 
-export default class App extends Component {
+class App extends Component {
   constructor(props){
     super(props)
     this.state = {
@@ -189,7 +193,7 @@ export default class App extends Component {
     if(peripheralInfo.characteristics)
     for(let i=0;i<peripheralInfo.characteristics.length;i=i+1){
       let char = peripheralInfo.characteristics[i]
-      let prop = char.properties
+      let prop = char.propertiesstartScan
       if(prop.Write){
         writeChar = char.characteristic
         service = char.service
@@ -214,6 +218,16 @@ export default class App extends Component {
       <View style={styles.container}>
         <Button onPress={this.startScan} >
           <Text>Scan Bluetooth ({this.state.scanning ? 'on' : 'off'})</Text>
+        </Button>
+        <Button onPress={()=>{
+          Auth.signOut()
+          .then(data => {
+            console.log(data)
+            this.props.onStateChange('signIn',{});
+          })
+          .catch(err => console.log(err));
+        }} >
+          <Text>Log Out</Text>
         </Button>
         { peripheralInfo && <View>
           <Text style={{textAlign: 'center'}}>Connected Device : {peripheralInfo.name}</Text>
@@ -271,3 +285,5 @@ const styles = StyleSheet.create({
     margin: 10
   },
 });
+
+export default withAuthenticator(App)

@@ -1,0 +1,70 @@
+{
+	"providers": {
+		"awscloudformation": {
+			"AuthRoleName": "iot-20190108120826-authRole",
+			"UnauthRoleArn": "arn:aws:iam::264518292870:role/iot-20190108120826-unauthRole",
+			"AuthRoleArn": "arn:aws:iam::264518292870:role/iot-20190108120826-authRole",
+			"Region": "us-east-1",
+			"DeploymentBucketName": "iot-20190108120826-deployment",
+			"UnauthRoleName": "iot-20190108120826-unauthRole",
+			"StackName": "iot-20190108120826",
+			"StackId": "arn:aws:cloudformation:us-east-1:264518292870:stack/iot-20190108120826/326b3070-1314-11e9-9ac3-1298ca2ea00e"
+		}
+	},
+	"hosting": {
+		"S3AndCloudFront": {
+			"service": "S3AndCloudFront",
+			"providerPlugin": "awscloudformation",
+			"providerMetadata": {
+				"s3TemplateURL": "https://s3.amazonaws.com/iot-20190108120826-deployment/amplify-cfn-templates/hosting/template.json",
+				"logicalId": "hostingS3AndCloudFront"
+			},
+			"lastPushTimeStamp": "2019-01-08T09:13:55.928Z",
+			"output": {
+				"S3BucketSecureURL": "https://iot-20190108121054-hostingbucket.s3.amazonaws.com",
+				"WebsiteURL": "http://iot-20190108121054-hostingbucket.s3-website-us-east-1.amazonaws.com",
+				"Region": "us-east-1",
+				"HostingBucketName": "iot-20190108121054-hostingbucket"
+			},
+			"lastPushDirHash": "BvWxvgLox6JJhCLU+FWKpQ7XjJE="
+		}
+	},
+	"auth": {
+		"cognito7de82c4c": {
+			"service": "Cognito",
+			"providerPlugin": "awscloudformation",
+			"providerMetadata": {
+				"s3TemplateURL": "https://s3.amazonaws.com/iot-20190108120826-deployment/amplify-cfn-templates/auth/cognito7de82c4c-cloudformation-template.yml",
+				"logicalId": "authcognito7de82c4c"
+			},
+			"lastPushTimeStamp": "2019-01-08T09:13:55.931Z",
+			"output": {
+				"AppClientSecret": "nhfaunnrvavp3idduimj21qifpp4oido03onfp6clehpt388ve6",
+				"UserPoolId": "us-east-1_GhDvO3QDa",
+				"AppClientIDWeb": "5eajl2f5beg4bh0t618fc9uba6",
+				"AppClientID": "jbun5tkc6p2a57r8qkk4k69i2",
+				"IdentityPoolId": "us-east-1:d888698f-1107-4164-afdb-c53db5329982",
+				"IdentityPoolName": "cognito7de82c4c_identitypool_7de82c4c",
+				"UserPoolName": "cognito7de82c4c_userpool_7de82c4c"
+			},
+			"lastPushDirHash": "X2ye5Ebneq1bkV4A9ubtjnCmBNU="
+		}
+	},
+	"analytics": {
+		"iot": {
+			"service": "Pinpoint",
+			"providerPlugin": "awscloudformation",
+			"providerMetadata": {
+				"s3TemplateURL": "https://s3.amazonaws.com/iot-20190108120826-deployment/amplify-cfn-templates/analytics/pinpoint-cloudformation-template.json",
+				"logicalId": "analyticsiot"
+			},
+			"lastPushTimeStamp": "2019-01-08T09:13:55.931Z",
+			"output": {
+				"appName": "iot",
+				"Region": "us-east-1",
+				"Id": "3a697fbe7d1b4407926f86427296a9b1"
+			},
+			"lastPushDirHash": "nnpDFUzxtrk7mHSlm526JgkAsBE="
+		}
+	}
+}

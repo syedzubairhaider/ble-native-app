@@ -1,0 +1,11 @@
+{
+    "appName": "iot",
+    "roleName": "pinpointLambdaRole1cbf3a9b",
+    "cloudWatchPolicyName": "cloudWatchPolicy1cbf3a9b",
+    "pinpointPolicyName": "pinpointPolicy1cbf3a9b",
+    "authPolicyName": "pinpoint_amplify_1cbf3a9b",
+    "unauthPolicyName": "pinpoint_amplify_1cbf3a9b",
+    "authRoleName": "iot-20190108120826-authRole",
+    "unauthRoleName": "iot-20190108120826-unauthRole",
+    "IAMPrefix": "264518292870"
+}

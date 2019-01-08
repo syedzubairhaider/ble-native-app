@@ -1,0 +1,15 @@
+{
+    "providers": {
+        "awscloudformation": {
+            "AuthRoleName": "iot-20190108120826-authRole",
+            "UnauthRoleArn": "arn:aws:iam::264518292870:role/iot-20190108120826-unauthRole",
+            "AuthRoleArn": "arn:aws:iam::264518292870:role/iot-20190108120826-authRole",
+            "Region": "us-east-1",
+            "DeploymentBucketName": "iot-20190108120826-deployment",
+            "UnauthRoleName": "iot-20190108120826-unauthRole",
+            "StackName": "iot-20190108120826",
+            "StackId": "arn:aws:cloudformation:us-east-1:264518292870:stack/iot-20190108120826/326b3070-1314-11e9-9ac3-1298ca2ea00e"
+        }
+    },
+    "publish-ignore": []
+}
