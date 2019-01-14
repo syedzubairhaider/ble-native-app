@@ -1,15 +1,10 @@
-import styled from 'styled-components'
+import styled, {css} from 'styled-components'
 
 export const Button = styled.TouchableOpacity`
-  marginTop: 40;
+  marginTop: 20;
   marginHorizontal: 20;
-  marginVertical: 20;
-  paddingVertical: 20;
+  paddingVertical: 10;
   paddingHorizontal: 20;
   backgroundColor:#ccc;
-`;
-
-export const Btn = styled.TouchableOpacity`
-  padding-vertical: 10px;
-  ${props => !!props.block && css`width: ${props.block}`};
+  ${props => !!props.marginTop && css`marginTop: ${props.marginTop}`};
 `
