@@ -17,21 +17,31 @@ import {
   TextInput,
   TouchableOpacity
 } from 'react-native';
-import BleManager from 'react-native-ble-manager';
 
 const window = Dimensions.get('window');
 const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 
+import BleManager from 'react-native-ble-manager';
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
-import { withAuthenticator } from 'aws-amplify-react-native'
-import { Auth } from 'aws-amplify'
-import awsconfig from './aws-exports';
-Auth.configure(awsconfig);
 
 import {
   Button,
 } from './styles'
+
+import ScanBarcode from './scanQr';
+
+import { withAuthenticator } from 'aws-amplify-react-native'
+import Amplify, { Auth, PubSub } from 'aws-amplify'
+import { AWSIoTProvider } from '@aws-amplify/pubsub/lib/Providers'
+import AWS from 'aws-sdk'
+import awsconfig from './aws-exports';
+Auth.configure(awsconfig);
+
+Amplify.addPluggable(new AWSIoTProvider({
+  aws_pubsub_region: 'us-east-1',
+  aws_pubsub_endpoint: 'wss://a1wkfsvgpw3qeh-ats.iot.us-east-1.amazonaws.com/mqtt',
+}));
 
 class App extends Component {
   constructor(props){
@@ -55,7 +65,8 @@ class App extends Component {
     if (Platform.OS === 'android' && Platform.Version >= 23) {
         PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION).then((result) => {
             if (result) {
-              console.log("Permission is OK");
+              console.log("Permission is OK", result);
+              this.setState({permission:true})
             } else {
               PermissionsAndroid.requestPermission(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION).then((result) => {
                 if (result) {
@@ -137,10 +148,21 @@ class App extends Component {
   handleDiscoverPeripheral = (peripheral) => {
     let peripherals = this.state.peripherals;
     if (!peripherals.has(peripheral.id)){
-      if(peripheral.name)console.log('Got ble peripheral', peripheral);
       peripherals.set(peripheral.id, peripheral);
       this.setState({ peripherals })
     }
+  }
+
+  updateUser = async () => {
+    if(!this.state.thingName) return false
+    const user = await Auth.currentAuthenticatedUser()
+    Auth.updateUserAttributes(user, {
+      'custom:attached_device': (this.state.thingName)
+      }).then(result => {
+        console.log('updateUserAttributes', result);
+      }).catch(err => {
+        console.log('error is aws update user  ',err)
+      })
   }
 
   test(peripheral) {
@@ -158,6 +180,7 @@ class App extends Component {
           }
           BleManager.retrieveServices(peripheral.id).then((peripheralInfo) => {
             console.log('peripheralInfo: ', peripheralInfo);
+            this.updateUser()
             let service = false
             let bakeCharacteristic = '2test';
             if(peripheralInfo.characteristics)
@@ -193,7 +216,7 @@ class App extends Component {
     if(peripheralInfo.characteristics)
     for(let i=0;i<peripheralInfo.characteristics.length;i=i+1){
       let char = peripheralInfo.characteristics[i]
-      let prop = char.propertiesstartScan
+      let prop = char.properties
       if(prop.Write){
         writeChar = char.characteristic
         service = char.service
@@ -209,25 +232,43 @@ class App extends Component {
     })
   }
 
+  async createThing(qrData) {
+    this.setState({qrData})
+    const thingName = qrData.rawData
+    if(!thingName) return false
+    const credentials = await Auth.currentCredentials();
+    const iot = new AWS.Iot({
+      region: 'us-east-1',
+      credentials: Auth.essentialCredentials(credentials)
+    });
+
+    const params = {
+      thingName, /* required */
+      thingTypeName: 'match-master'
+    };
+    iot.createThing(params, (err, data) => {
+      if (err) alert(JSON.stringify(err,null, 4))
+      else this.setState({thingName})
+    })
+  }
+
   render() {
     const list = Array.from(this.state.peripherals.values());
-    const dataSource = ds.cloneWithRows(list);
-    const { peripheralInfo, text} = this.state
-
+    const { peripheralInfo, text, permission, scanning, qrData} = this.state
+    const Btext = permission ? ('Bluetooth scanning : ' + (scanning ? 'ON' : 'OFF')) : 'Loading'
+    const {user:{username}} = Auth
     return (
       <View style={styles.container}>
-        <Button onPress={this.startScan} >
-          <Text>Scan Bluetooth ({this.state.scanning ? 'on' : 'off'})</Text>
+        {!qrData && <ScanBarcode fetchData={(qrData)=>this.createThing(qrData)}/>}
+        {qrData && <View>
+        <Button disabled={!permission} onPress={this.startScan} >
+          <Text>{Btext}</Text>
         </Button>
-        <Button onPress={()=>{
-          Auth.signOut()
-          .then(data => {
-            console.log(data)
-            this.props.onStateChange('signIn',{});
-          })
-          .catch(err => console.log(err));
-        }} >
-          <Text>Log Out</Text>
+        <Button onPress={()=>this.setState({qrData:false})} >
+          <Text>Scan QR Again</Text>
+        </Button>
+        <Button onPress={()=>Auth.signOut().then(data => this.props.onStateChange('signIn',{}))}>
+          <Text>{`Log Out ( ${username} )`}</Text>
         </Button>
         { peripheralInfo && <View>
           <Text style={{textAlign: 'center'}}>Connected Device : {peripheralInfo.name}</Text>
@@ -241,29 +282,28 @@ class App extends Component {
             <Text>Send Message</Text>
           </Button>
         </View>}
-        {!peripheralInfo && <ScrollView  style={styles.scroll}>
+
+        { !peripheralInfo && <ScrollView  style={styles.scroll}>
           {(list.length == 0) &&
             <View style={{flex:1, margin: 20}}>
               <Text style={{textAlign: 'center'}}>No peripherals</Text>
             </View>
           }
-          <ListView
-            enableEmptySections={true}
-            dataSource={dataSource}
-            renderRow={(item) => {
-              const color = item.connected ? 'green' : '#fff';
-              if(!item.name) return false
-              return (
-                <Button onPress={() => this.test(item) }>
-                  <View >
-                    <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 10}}>{item.name}</Text>
-                    <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 10}}>{item.id +'  '+ item.rssi}</Text>
-                  </View>
-                </Button>
-              );
-            }}
-          />
+
+          {list.map((item, i) => {
+            if(!item.name) return false
+            return (
+              <Button key={i} onPress={() => this.test(item) }>
+                <View >
+                  <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 1}}>{item.name}</Text>
+                  <Text style={{fontSize: 12, textAlign: 'center', color: '#333333', padding: 1}}>{item.id}</Text>
+                </View>
+              </Button>
+            );
+          })}
         </ScrollView>}
+        </View>
+        }
       </View>
     );
   }
@@ -277,13 +317,9 @@ const styles = StyleSheet.create({
     height: window.height
   },
   scroll: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
+    // backgroundColor: '#f0f0f0',
     margin: 10,
-  },
-  row: {
-    margin: 10
-  },
+  }
 });
 
 export default withAuthenticator(App)
