@@ -1,11 +1,8 @@
 import React, { Component } from 'react';
 import {
-  AppRegistry,
   StyleSheet,
   Text,
   View,
-  TouchableHighlight,
-  NativeAppEventEmitter,
   NativeEventEmitter,
   NativeModules,
   Platform,
@@ -15,11 +12,10 @@ import {
   AppState,
   Dimensions,
   TextInput,
-  TouchableOpacity
 } from 'react-native';
 
 const window = Dimensions.get('window');
-const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
+// const ds = new ListView.DataSource({rowHasChanged: (r1, r2) => r1 !== r2});
 
 import BleManager from 'react-native-ble-manager';
 const BleManagerModule = NativeModules.BleManager;
@@ -42,6 +38,8 @@ Amplify.addPluggable(new AWSIoTProvider({
   aws_pubsub_region: 'us-east-1',
   aws_pubsub_endpoint: 'wss://a1wkfsvgpw3qeh-ats.iot.us-east-1.amazonaws.com/mqtt',
 }));
+
+
 
 class App extends Component {
   constructor(props){
@@ -109,9 +107,8 @@ class App extends Component {
   }
 
   handleUpdateValueForCharacteristic = (data) => {
-    console.log('data: ', data);
     console.log('Received data from ' + data.peripheral + ' characteristic ' + data.characteristic, data.value);
-    alert(data.value)
+    this.publishTopic(data,'device')
   }
 
   handleStopScan = () => {
@@ -134,7 +131,7 @@ class App extends Component {
       if (results.length == 0) {
         console.log('No connected peripherals')
       }
-      console.log(results);
+      console.log('retrieveConnected: ',results);
       let peripherals = this.state.peripherals;
       for (let i = 0; i < results.length; i++) {
         let peripheral = results[i];
@@ -180,7 +177,6 @@ class App extends Component {
           }
           BleManager.retrieveServices(peripheral.id).then((peripheralInfo) => {
             console.log('peripheralInfo: ', peripheralInfo);
-            this.updateUser()
             let service = false
             let bakeCharacteristic = '2test';
             if(peripheralInfo.characteristics)
@@ -188,9 +184,11 @@ class App extends Component {
                 let char = peripheralInfo.characteristics[i]
                 let prop = char.properties
                 if(prop.Notify){
+                  this.setState({notify: char})
                   bakeCharacteristic = char.characteristic
                   service = char.service
                 }
+                if (prop.Write) this.setState({write: char})
             }
             if(!service) return alert('no notify access')
             this.setState({peripheralInfo})
@@ -208,28 +206,17 @@ class App extends Component {
   }
 
   sendMessage = (param) => {
-    const {peripheralInfo, text} = this.state
-    const self = this
-    if(!peripheralInfo) return false
-    let service = '1';
-    let writeChar = '2';
-    if(peripheralInfo.characteristics)
-    for(let i=0;i<peripheralInfo.characteristics.length;i=i+1){
-      let char = peripheralInfo.characteristics[i]
-      let prop = char.properties
-      if(prop.Write){
-        writeChar = char.characteristic
-        service = char.service
-      }
-    }
-    if(!service) return alert('No Write Access')
-    BleManager.write(peripheralInfo.id, service, writeChar, [parseInt(param)]).then(() => {
-      console.log('param: ', param);
-      alert('Successfully sent Message : '+param)
-      self.setState({text:''})
-    }).catch((error) => {
-      console.log('Write error', error);
-    })
+    const {peripheralInfo, write} = this.state
+    if(!write) return alert('No Write Access')
+    BleManager.write(
+      peripheralInfo.id,
+      write.service,
+      write.characteristic,
+      parseInt(param)
+    ).then(() => {
+      this.publishTopic(param,'mobile')
+      this.setState({text:''})
+    }).catch((error) => { console.log('Write error', error) })
   }
 
   async createThing(qrData) {
@@ -248,20 +235,41 @@ class App extends Component {
     };
     iot.createThing(params, (err, data) => {
       if (err) alert(JSON.stringify(err,null, 4))
-      else this.setState({thingName})
+      else {
+        this.setState({thingName})
+        this.updateUser()
+      }
+    })
+  }
+
+  publishTopic = async (data,sender) => {
+    let thingName = ''
+    const user = await Auth.currentAuthenticatedUser({ bypassCache: true })
+
+    if(user && user.attributes && user.attributes['custom:attached_device'])
+      thingName = user.attributes['custom:attached_device']
+
+    if(!thingName) return alert('no thing found')
+    await PubSub.publish(`$aws/things/${thingName}/shadow/update`, {
+      state: {
+        desired: {
+          sender,
+          data
+        }
+      }
     })
   }
 
   render() {
     const list = Array.from(this.state.peripherals.values());
     const { peripheralInfo, text, permission, scanning, qrData} = this.state
-    const Btext = permission ? ('Bluetooth scanning : ' + (scanning ? 'ON' : 'OFF')) : 'Loading'
+    const Btext = permission ? ('Bluetooth scanning : ' + (scanning ? 'ON' : 'OFF')) : 'Checking Bluetooth Permission'
     const {user:{username}} = Auth
     return (
       <View style={styles.container}>
         {!qrData && <ScanBarcode fetchData={(qrData)=>this.createThing(qrData)}/>}
         {qrData && <View>
-        <Button disabled={!permission} onPress={this.startScan} >
+        <Button marginTop={50} disabled={!permission} onPress={this.startScan} >
           <Text>{Btext}</Text>
         </Button>
         <Button onPress={()=>this.setState({qrData:false})} >
